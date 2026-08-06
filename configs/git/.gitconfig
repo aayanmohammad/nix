@@ -1,0 +1,35 @@
+# =============================================================================
+# Git Configuration
+# =============================================================================
+#
+# Global Git configuration shared across all repositories.
+#
+# Includes:
+#   - Commit author identity.
+#   - Colored terminal output.
+#   - Default branch name for new repositories.
+#   - Preferred editor for Git operations.
+#
+# Location:
+#   ~/.gitconfig
+#
+
+[user]
+    # Commit author name.
+    name = Aayan Mohammad
+
+    # GitHub noreply email to keep the primary email address private.
+    email = 271364631+aayanmohammad@users.noreply.github.com
+
+[color]
+    # Enable colored output when supported by the terminal.
+    ui = auto
+
+[init]
+    # Use "main" as the default branch for new repositories.
+    defaultBranch = main
+
+[core]
+    # Open Git editor prompts in Neovim.
+    # The -f flag keeps Neovim in the foreground until it is closed.
+    editor = "nvim -f"
