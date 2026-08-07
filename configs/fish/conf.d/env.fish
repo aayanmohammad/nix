@@ -16,8 +16,8 @@ set -g fish_greeting
 # =============================================================================
 
 # Use Neovim as the default text editor
-set -gx EDITOR nvim
-set -gx VISUAL nvim
+set -gx EDITOR (command -v nvim)
+set -gx VISUAL $EDITOR
 
 # =============================================================================
 # Nix
