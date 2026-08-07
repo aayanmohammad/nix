@@ -148,3 +148,36 @@ vim.api.nvim_create_autocmd("BufWritePre", {
 	end,
 })
 
+-- ============================================================================
+-- Completion
+-- ============================================================================
+-- Autocmds that handle automatic completion behavior.
+
+-- Filetypes where automatic omnifunc completion should be disabled.
+local ignored_filetypes = {
+	markdown = true,
+	gitcommit = true,
+	text = true,
+}
+
+-- Trigger omnifunc completion automatically while typing.
+-- Skips ignored filetypes and buffers without an omnifunc source.
+vim.api.nvim_create_autocmd("TextChangedI", {
+	group = augroup,
+	desc = "Trigger omnifunc completion while typing",
+
+	callback = function()
+		if ignored_filetypes[vim.bo.filetype] then
+			return
+		end
+
+		if vim.bo.omnifunc == "" then
+			return
+		end
+
+		if vim.fn.pumvisible() == 0 then
+			vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-x><C-o>", true, false, true), "n", false)
+		end
+	end,
+})
+

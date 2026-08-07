@@ -153,16 +153,8 @@ vim.o.wildmode = "longest:full,full"
 -- ============================================================================
 -- Persistence
 -- ============================================================================
+
 -- Preserve editing state between Neovim sessions.
-
--- Store undo history in a dedicated directory so changes survive closing files.
-local undodir = vim.fn.expand("~/.vim/undofile")
-
-if vim.fn.isdirectory(undodir) == 0 then
-	vim.fn.mkdir(undodir, "p")
-end
-
-vim.o.undodir = undodir
 vim.o.undofile = true
 
 -- Disable backup, write backup, and swap files.

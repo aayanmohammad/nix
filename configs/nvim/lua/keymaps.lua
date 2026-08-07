@@ -1,15 +1,15 @@
 -- ============================================================================
 -- Editing
 -- ============================================================================
--- Keymaps that improve text editing behavior.
+-- Keymaps that improve text editing behavior
 
--- Quickly leave insert/visual mode using a home-row key combination.
+-- Quickly leave insert/visual mode using a home-row key combination
 vim.keymap.set({ "i", "v" }, "kj", "<Esc>", {
 	desc = "Enter normal mode",
 })
 
--- Move visually wrapped lines as if they were real lines.
--- Counts still use normal j/k behavior.
+-- Move visually wrapped lines as if they were real lines
+-- Counts still use normal j/k behavior
 vim.keymap.set("n", "j", function()
 	return vim.v.count == 0 and "gj" or "j"
 end, {
@@ -26,7 +26,7 @@ end, {
 	desc = "Move up (wrap-aware)",
 })
 
--- Keep search results centered while navigating.
+-- Keep search results centered while navigating
 vim.keymap.set("n", "n", "nzzzv", {
 	desc = "Next search result (centered)",
 })
@@ -35,7 +35,7 @@ vim.keymap.set("n", "N", "Nzzzv", {
 	desc = "Previous search result (centered)",
 })
 
--- Keep cursor centered after half-page jumps.
+-- Keep cursor centered after half-page jumps
 vim.keymap.set("n", "<C-d>", "<C-d>zz", {
 	desc = "Scroll half page down (centered)",
 })
@@ -44,7 +44,7 @@ vim.keymap.set("n", "<C-u>", "<C-u>zz", {
 	desc = "Scroll half page up (centered)",
 })
 
--- Remove search highlighting.
+-- Remove search highlighting
 vim.keymap.set("n", "<leader>nh", "<cmd>nohlsearch<CR>", {
 	desc = "Clear search highlights",
 })
@@ -52,7 +52,7 @@ vim.keymap.set("n", "<leader>nh", "<cmd>nohlsearch<CR>", {
 -- ============================================================================
 -- Clipboard
 -- ============================================================================
--- Prevent deleted or replaced text from overwriting the default register.
+-- Prevent deleted or replaced text from overwriting the default register
 
 vim.keymap.set("x", "<leader>p", '"_dP', {
 	desc = "Paste without yanking",
@@ -67,7 +67,7 @@ vim.keymap.set("v", "<leader>y", '"+y', {
 	desc = "Yank to system clipboard",
 })
 
--- Join lines while preserving the current cursor position.
+-- Join lines while preserving the current cursor position
 vim.keymap.set("n", "J", "mzJ`z", {
 	desc = "Join lines (keep cursor position)",
 })
@@ -75,7 +75,7 @@ vim.keymap.set("n", "J", "mzJ`z", {
 -- ============================================================================
 -- Buffers
 -- ============================================================================
--- Navigate between open buffers.
+-- Navigate between open buffers
 
 vim.keymap.set("n", "<leader>bn", "<cmd>bnext<CR>", {
 	desc = "Switch to next buffer",
@@ -92,7 +92,7 @@ vim.keymap.set("n", "<leader>bd", "<cmd>bdelete<CR>", {
 -- ============================================================================
 -- Windows
 -- ============================================================================
--- Create and resize editor splits.
+-- Create and resize editor splits
 
 vim.keymap.set("n", "<leader>sv", "<cmd>vsplit<CR>", {
 	desc = "Open vertical split",
@@ -121,9 +121,9 @@ vim.keymap.set("n", "<C-l>", "<cmd>vertical resize +2<CR>", {
 -- ============================================================================
 -- Visual Mode
 -- ============================================================================
--- Improve selection editing.
+-- Improve selection editing
 
--- Move selected lines while keeping the selection active.
+-- Move selected lines while keeping the selection active
 vim.keymap.set("v", "<A-j>", ":m '>+1<CR>gv=gv", {
 	desc = "Move selection down",
 })
@@ -132,7 +132,7 @@ vim.keymap.set("v", "<A-k>", ":m '<-2<CR>gv=gv", {
 	desc = "Move selection up",
 })
 
--- Keep selection active after indentation.
+-- Keep selection active after indentation
 vim.keymap.set("v", "<", "<gv", {
 	desc = "Indent left (keep selection)",
 })
@@ -144,16 +144,50 @@ vim.keymap.set("v", ">", ">gv", {
 -- ============================================================================
 -- Completion
 -- ============================================================================
--- Manually trigger completion.
+-- Keymaps that control completion menu navigation
 
-vim.keymap.set("i", "<TAB>", "<C-x><C-o>", {
-	desc = "Trigger completion",
+-- Use Tab to select the next completion item
+-- Do regular Tab  when the completion menu is not visible
+vim.keymap.set("i", "<Tab>", function()
+	if vim.fn.pumvisible() == 1 then
+		return "<C-n>"
+	end
+
+	return "<Tab>"
+end, {
+	expr = true,
+	desc = "Select next completion item",
+})
+
+-- ============================================================================
+-- Auto Pairs
+-- ============================================================================
+-- Keymaps that automatically insert closing brackets, quotes, etc
+
+-- Insert matching closing brackets when opening brackets are typed
+vim.keymap.set("i", "(", "()<Left>", {
+	desc = "Auto close parentheses",
+})
+vim.keymap.set("i", "[", "[]<Left>", {
+	desc = "Auto close brackets",
+})
+vim.keymap.set("i", "{", "{}<Left>", {
+	desc = "Auto close braces",
+})
+
+-- Insert matching closing quotes when opening quotes are typed.
+vim.keymap.set("i", "'", "''<Left>", {
+	desc = "Auto close single quote",
+})
+
+vim.keymap.set("i", '"', '""<Left>', {
+	desc = "Auto close double quote",
 })
 
 -- ============================================================================
 -- File Explorer
 -- ============================================================================
--- Toggle Neovim's built-in netrw explorer.
+-- Toggle Neovim's built-in netrw explorer
 
 vim.keymap.set("n", "<leader>e", function()
 	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
@@ -172,10 +206,10 @@ end, {
 -- ============================================================================
 -- Formatting
 -- ============================================================================
--- Keymaps that control code formatting.
+-- Keymaps that control code formatting
 
--- Format the current buffer manually.
--- This provides a quick way to apply formatting without saving.
+-- Format the current buffer manually
+-- This provides a quick way to apply formatting without saving
 vim.keymap.set("n", "<leader>f", function()
 	require("formatter").format()
 end, {
