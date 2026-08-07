@@ -75,25 +75,5 @@ function M.format()
 	vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.split(result.stdout, "\n"))
 end
 
--- Format the buffer before saving.
--- This keeps files consistently formatted without manual commands.
-local augroup = vim.api.nvim_create_augroup("FormatOnSave", { clear = true })
-vim.api.nvim_create_autocmd("BufWritePre", {
-	group = augroup,
-	desc = "Format buffer before saving",
-
-	callback = function()
-		require("formatter").format()
-	end,
-})
-
--- Format the current buffer manually.
--- This provides a quick way to apply formatting without saving.
-vim.keymap.set("n", "<leader>f", function()
-	require("formatter").format()
-end, {
-	desc = "Format current buffer",
-})
-
 return M
 

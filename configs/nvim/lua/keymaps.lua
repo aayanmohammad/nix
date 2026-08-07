@@ -169,3 +169,16 @@ end, {
 	desc = "Toggle file explorer",
 })
 
+-- ============================================================================
+-- Formatting
+-- ============================================================================
+-- Keymaps that control code formatting.
+
+-- Format the current buffer manually.
+-- This provides a quick way to apply formatting without saving.
+vim.keymap.set("n", "<leader>f", function()
+	require("formatter").format()
+end, {
+	desc = "Format current buffer",
+})
+
