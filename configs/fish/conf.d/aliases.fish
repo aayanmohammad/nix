@@ -17,7 +17,7 @@ alias la "ls -A"
 
 # Display detailed file information with human-readable sizes.
 # Shows permissions, ownership, size, and timestamps.
-alias ll "la -lh"
+alias ll "ls -lAh"
 
 # =============================================================================
 # File Operations
