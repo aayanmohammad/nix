@@ -40,6 +40,7 @@ check_existing() {
 		y | Y)
 			echo "Removing existing configuration..."
 			rm -rf "$NIX_DIR"
+			sudo rm -rf "/etc/nix/machine.nix"
 			;;
 		*)
 			echo "Cancelled - no changes have occurred."
@@ -141,12 +142,23 @@ first_run() {
 #######################################
 # Fish
 #######################################
-
 setup_fish() {
 	echo "Enabling Fish..."
 
-	if command -v fish >/dev/null 2>&1; then
-		sudo chsh -s "$(command -v fish)"
+	fish_path="$(command -v fish || true)"
+
+	if ! grep -Fxq "$fish_path" /etc/shells; then
+		echo "Adding $fish_path to /etc/shells..."
+		echo "$fish_path" | sudo tee -a /etc/shells >/dev/null
+	fi
+
+	current_shell="$(getent passwd "$USER" | cut -d: -f7)"
+
+	if [ "$current_shell" != "$fish_path" ]; then
+		echo "Changing login shell to Fish..."
+		sudo chsh -s "$fish_path" "$USER"
+	else
+		echo "Fish is already the login shell."
 	fi
 }
 
