@@ -16,7 +16,6 @@
 #   >
 #
 # Uses a single `git status` invocation for Git information.
-#
 
 # Show full directory names.
 set -g fish_prompt_pwd_dir_length 0

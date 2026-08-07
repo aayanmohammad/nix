@@ -2,8 +2,7 @@
 # Keybindings
 # =============================================================================
 #
-# Configures Fish shell keyboard behavior and shortcuts.
-#
+# Configures shell keyboard behavior and shortcuts.
 
 # =============================================================================
 # Vi Mode

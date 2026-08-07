@@ -11,7 +11,6 @@
 #
 # Requires a terminal emulator with OSC color support.
 # These settings affect applications that use terminal colors.
-#
 
 # =============================================================================
 # Default Colors
@@ -46,10 +45,9 @@ printf '\e]10;rgb:eb/db/b2\a'
 #   13 Bright Magenta
 #   14 Bright Cyan
 #   15 Bright White
-#
 
 # Normal colors
-printf '\e]4;0;rgb:28/28/28\a' # Black
+printf '\e]4;0;rgb:28/28/28\a'# Black
 printf '\e]4;1;rgb:cc/24/1d\a' # Red
 printf '\e]4;2;rgb:98/97/1a\a' # Green
 printf '\e]4;3;rgb:d7/99/21\a' # Yellow

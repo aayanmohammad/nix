@@ -3,14 +3,6 @@
 # =============================================================================
 #
 # Common command shortcuts and safer defaults for interactive Fish sessions.
-# This file is loaded by Fish shell to provide convenient command aliases.
-#
-# Location:
-#   ~/.config/fish/conf.d/aliases.fish
-#
-# Reload changes with:
-#   source ~/.config/fish/conf.d/aliases.fish
-#
 
 # =============================================================================
 # Directory Listing
@@ -25,7 +17,7 @@ alias la "ls -A"
 
 # Display detailed file information with human-readable sizes.
 # Shows permissions, ownership, size, and timestamps.
-alias ll "ls -lh"
+alias ll "la -lh"
 
 # =============================================================================
 # File Operations

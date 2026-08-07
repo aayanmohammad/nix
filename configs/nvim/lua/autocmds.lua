@@ -132,19 +132,3 @@ vim.api.nvim_create_autocmd("FileType", {
 	end,
 })
 
--- ============================================================================
--- Formatting
--- ============================================================================
--- Autocmds that handle automatic code formatting.
-
--- Format the buffer before saving.
--- This keeps files consistently formatted without manual commands.
-vim.api.nvim_create_autocmd("BufWritePre", {
-	group = augroup,
-	desc = "Format buffer before saving",
-
-	callback = function()
-		require("formatter").format()
-	end,
-})
-

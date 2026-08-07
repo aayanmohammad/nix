@@ -9,10 +9,6 @@
 #   - Colored terminal output.
 #   - Default branch name for new repositories.
 #   - Preferred editor for Git operations.
-#
-# Location:
-#   ~/.gitconfig
-#
 
 [user]
     # Commit author name.
