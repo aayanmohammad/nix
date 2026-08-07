@@ -1,15 +1,14 @@
 # =============================================================================
 # Keybindings
 # =============================================================================
-#
-# Configures shell keyboard behavior and shortcuts.
+# Configure Fish keybindings and keyboard shortcuts.
+# =============================================================================
 
 # =============================================================================
 # Vi Mode
 # =============================================================================
 
-# Enable Vi-style keybindings.
-# Provides Normal and Insert modes similar to Vim.
+# Enable Vim-style editing with Normal and Insert modes.
 fish_vi_key_bindings
 
 # =============================================================================
@@ -17,15 +16,12 @@ fish_vi_key_bindings
 # =============================================================================
 
 # Accept the current autosuggestion.
-# Inserts the suggested command from Fish history.
 bind -M insert ctrl-space accept-autosuggestion
 
-# Navigate command history by matching the current input.
-# Searches backward and forward through previous commands.
+# Search command history for entries matching the current input.
 bind -M insert ctrl-p history-search-backward
 bind -M insert ctrl-n history-search-forward
 
-# Open the interactive history search pager.
-# Allows searching and selecting previous commands.
+# Open the interactive command history browser.
 bind -M insert ctrl-r history-pager
 
