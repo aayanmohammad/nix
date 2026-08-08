@@ -5,6 +5,6 @@
 
   home.packages = with pkgs; [ openssh ];
 
-  home.file.".gitconfig".source = ../configs/git/.gitconfig;
+  home.file.".gitconfig".source = ../configs/.gitconfig;
 }
 
