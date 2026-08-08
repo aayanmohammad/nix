@@ -24,7 +24,7 @@ set -gx VISUAL $EDITOR
 # =============================================================================
 
 # Add the user Nix profile to PATH
-fish_add_path ~/.nix-profile/bin
+set -gx PATH ~/.nix-profile/bin $PATH
 
 # Load the Nix daemon environment when available
 if test -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.fish
