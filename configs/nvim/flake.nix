@@ -23,14 +23,16 @@
     let
       machineConfig = import machine;
 
-      system = machineConfig.system;
-
       pkgs = import nixpkgs {
-        inherit system;
+        system = machineConfig.system;
       };
 
-      homeConfig = home-manager.lib.homeManagerConfiguration {
+      neovimConfig = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
+
+        extraSpecialArgs = {
+          machine = machineConfig;
+        };
 
         modules = [
           ../../modules/nvim.nix
@@ -41,20 +43,14 @@
               homeDirectory = machineConfig.homeDirectory;
               stateVersion = "26.05";
             };
-
-            xdg.configFile."nvim".source = ./.;
           }
         ];
-
-        extraSpecialArgs = {
-          machine = machineConfig;
-        };
       };
     in
     {
-      devShells.${system}.default = pkgs.mkShell {
+      devShells.${machineConfig.system}.default = pkgs.mkShell {
         packages = [
-          homeConfig.config.programs.neovim.finalPackage
+          neovimConfig.config.programs.neovim.finalPackage
         ];
 
         shellHook = ''
