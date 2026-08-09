@@ -19,12 +19,10 @@ cleanup() {
 	fi
 }
 
-check_dependencies() {
+request_sudo() {
 	command -v sudo >/dev/null 2>&1 ||
 		die "sudo is required but was not found."
-}
 
-request_sudo() {
 	echo "Requesting sudo access..."
 	sudo -v
 
@@ -84,12 +82,12 @@ enable_flakes() {
 }
 
 clone_configuration() {
-	echo "Cloning configuration..."
-
 	if [ -e "$NIX_DIR" ]; then
 		echo "Removing existing configuration..."
 		rm -rf "$NIX_DIR"
 	fi
+
+	echo "Cloning configuration..."
 
 	nix shell nixpkgs#git -c \
 		git clone "$REPO_URL" "$NIX_DIR"
@@ -129,6 +127,12 @@ detect_system() {
 }
 
 generate_machine_config() {
+	if [ -e "$MACHINE" ]; then
+		echo "machine.nix already exists."
+		cat "$MACHINE"
+		return
+	fi
+
 	echo "Generating machine.nix..."
 
 	sudo tee "$MACHINE" >/dev/null <<EOF
@@ -140,6 +144,7 @@ generate_machine_config() {
 EOF
 
 	sudo chmod 644 "$MACHINE"
+	cat "$MACHINE"
 }
 
 apply_home_manager() {
@@ -174,7 +179,6 @@ configure_fish() {
 }
 
 main() {
-	check_dependencies
 	request_sudo
 
 	install_nix
