@@ -1,25 +1,12 @@
-# =============================================================================
-# Git Configuration
-# =============================================================================
-# Global Git settings applied to all repositories for this user
-# =============================================================================
-
 [user]
-    # Commit identity recorded in new commits
     name = Aayan Mohammad
-    # GitHub noreply email is used to keep the primary email address private
     email = 271364631+aayanmohammad@users.noreply.github.com
 
 [color]
-    # Enable colored output when writing to a terminal.
     ui = auto
 
 [init]
-    # Use "main" as the initial branch name for newly created repositories.
     defaultBranch = main
 
 [core]
-    # Use Neovim for interactive Git operations, such as editing commit messages,
-    # The -f flag keeps Neovim in the foreground so Git waits until the editor is
-    # closed before continuing.
-    editor = "nvim -f"
+    editor = "nvim"

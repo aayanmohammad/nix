@@ -1,42 +1,3 @@
--- ============================================================================
--- Gruvbox Colorscheme
--- ============================================================================
--- A self-contained Gruvbox-inspired colorscheme for Neovim.
---
--- This module:
--- - Defines the Gruvbox color palette.
--- - Configures styling options (bold, italics, transparency, etc.).
--- - Sets terminal ANSI colors.
--- - Creates all highlight groups for:
---   - Neovim UI
---   - Diagnostics/LSP
---   - Tree-sitter
---   - Language-specific syntax
---   - Markdown
---   - Git/Diff
---   - Plugin integrations
--- - Applies every highlight using `nvim_set_hl()`.
---
--- Structure:
---   1. Configuration
---   2. Color Palette
---   3. Terminal Colors
---   4. Highlight Groups
---   5. Apply Colorscheme
-
--- ============================================================================
--- Configuration
--- ============================================================================
--- User-configurable styling options.
---
--- Controls:
--- - Text styles (bold, italics, underline, undercurl)
--- - Selection inversion
--- - Sign column inversion
--- - Transparent background
--- - Dim inactive windows
--- - Terminal ANSI colors
-
 local config = {
 	terminal_colors = true,
 	undercurl = true,
@@ -57,32 +18,6 @@ local config = {
 	dim_inactive = false,
 	transparent_mode = false,
 }
-
--- ============================================================================
--- Color Palette
--- ============================================================================
--- Core Gruvbox color definitions.
---
--- Naming follows the original Gruvbox palette:
---
--- Backgrounds
---   bg0 → darkest
---   bg4 → lightest
---
--- Foregrounds
---   fg0 → brightest
---   fg4 → dimmest
---
--- Accent colors
---   red
---   green
---   yellow
---   blue
---   purple
---   aqua
---   orange
---
--- Additional variants are used for diagnostics, diffs, and signs.
 
 local colors = {
 	bg0 = "#282828",
@@ -119,20 +54,6 @@ local colors = {
 	gray = "#928374",
 }
 
--- ============================================================================
--- Terminal Colors
--- ============================================================================
--- Populate Neovim's terminal ANSI color table.
---
--- When enabled, these values become:
---
---   terminal_color_0  → black
---   terminal_color_1  → red
---   ...
---   terminal_color_15 → bright white
---
--- This ensures terminal buffers share the colorscheme palette.
-
 if config.terminal_colors then
 	local term_colors = {
 		colors.bg0,
@@ -157,33 +78,6 @@ if config.terminal_colors then
 		vim.g["terminal_color_" .. (i - 1)] = color
 	end
 end
-
--- ============================================================================
--- Highlight Groups
--- ============================================================================
--- Collection of every highlight definition.
---
--- Most groups either:
---
--- • Define colors directly
--- • Link to another highlight group
---
--- Organization roughly follows:
---
---   Helper groups
---   Core UI
---   Window/UI elements
---   Diagnostics
---   LSP
---   Diff
---   Built-in syntax
---   Language-specific syntax
---   Markdown
---   Tree-sitter
---   Semantic Tokens
---
--- Helper groups (GruvboxRed, GruvboxGreenBold, etc.) exist so colors can be
--- reused consistently throughout the colorscheme.
 
 local groups = {
 	GruvboxFg0 = { fg = colors.fg0 },
@@ -805,23 +699,10 @@ local groups = {
 	["@lsp.type.typeParameter"] = { link = "@type.definition" },
 }
 
--- ============================================================================
--- Reset Existing Colorscheme
--- ============================================================================
--- Remove any previously active highlight definitions before applying ours.
-
 vim.cmd("highlight clear")
-
 if vim.fn.exists("syntax_on") then
 	vim.cmd("syntax reset")
 end
-
--- ============================================================================
--- Apply Highlight Groups
--- ============================================================================
--- Register every highlight with Neovim.
---
--- Each entry in `groups` is passed directly to `nvim_set_hl()`.
 
 for group, settings in pairs(groups) do
 	vim.api.nvim_set_hl(0, group, settings)

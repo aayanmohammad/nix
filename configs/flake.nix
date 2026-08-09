@@ -23,11 +23,13 @@
     let
       machineConfig = import machine;
 
+      configHome = "${machineConfig.homeDirectory}/.nix/configs";
+
       pkgs = import nixpkgs {
         system = machineConfig.system;
       };
 
-      neovimConfig = home-manager.lib.homeManagerConfiguration {
+      homeManager = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
 
         extraSpecialArgs = {
@@ -35,26 +37,23 @@
         };
 
         modules = [
-          ../../modules/nvim.nix
-
+          ../home.nix
           {
-            home = {
-              username = machineConfig.username;
-              homeDirectory = machineConfig.homeDirectory;
-              stateVersion = "26.05";
-            };
+            xdg.configHome = configHome;
           }
         ];
       };
     in
     {
       devShells.${machineConfig.system}.default = pkgs.mkShell {
-        packages = [
-          neovimConfig.config.programs.neovim.finalPackage
-        ];
-
+        packages = homeManager.config.home.packages;
         shellHook = ''
-          export XDG_CONFIG_HOME="$PWD/.."
+          export HOME="${configHome}"
+          export XDG_CONFIG_HOME="${configHome}"
+
+          export XDG_CACHE_HOME="${machineConfig.homeDirectory}/.cache"
+          export XDG_DATA_HOME="${machineConfig.homeDirectory}/.local/share"
+          export XDG_STATE_HOME="${machineConfig.homeDirectory}/.local/state"
         '';
       };
     };

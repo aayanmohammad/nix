@@ -1,40 +1,6 @@
-# =============================================================================
-# Gruvbox Dark Terminal Colors
-# =============================================================================
-#
-# Configure terminal colors using OSC (Operating System Command) escape sequences
-#
-# This sets:
-# - Default foreground color
-# - Default background color
-# - ANSI color palette (0–15)
-#
-# Requires a terminal emulator that supports OSC color sequences
-# Applications that use terminal colors will automatically use this palette
-
-# =============================================================================
-# Default Colors
-# =============================================================================
-
-# Default background color
 printf '\e]11;rgb:28/28/28\a'
-
-# Default foreground color
 printf '\e]10;rgb:eb/db/b2\a'
 
-# =============================================================================
-# ANSI Color Palette (0–15)
-# =============================================================================
-
-# Standard ANSI colors
-#  0  Black
-#  1  Red
-#  2  Green
-#  3  Yellow
-#  4  Blue
-#  5  Magenta
-#  6  Cyan
-#  7  White
 printf '\e]4;0;rgb:28/28/28\a'
 printf '\e]4;1;rgb:cc/24/1d\a'
 printf '\e]4;2;rgb:98/97/1a\a'
@@ -44,15 +10,6 @@ printf '\e]4;5;rgb:b1/62/86\a'
 printf '\e]4;6;rgb:68/9d/6a\a'
 printf '\e]4;7;rgb:a8/99/84\a'
 
-# Bright ANSI colors
-#  8  Bright Black
-#  9  Bright Red
-# 10  Bright Green
-# 11  Bright Yellow
-# 12  Bright Blue
-# 13  Bright Magenta
-# 14  Bright Cyan
-# 15  Bright White
 printf '\e]4;8;rgb:92/83/74\a'
 printf '\e]4;9;rgb:fb/49/34\a'
 printf '\e]4;10;rgb:b8/bb/26\a'
