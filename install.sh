@@ -1,158 +1,169 @@
 #!/bin/sh
 set -eu
 
-REPO_URL="https://github.com/aayanmohammad/nix.git"
 NIX_DIR="$HOME/.nix"
+REPO_URL="https://github.com/aayanmohammad/nix.git"
+MACHINE="/etc/nix/machine.nix"
+CONF="/etc/nix/nix.conf"
 
-#######################################
-# Require sudo
-#######################################
+SUDO_KEEPALIVE_PID=""
 
-require_sudo() {
-	if ! command -v sudo >/dev/null 2>&1; then
-		echo "sudo is required but was not found."
-		exit 1
+die() {
+	echo "Error: $*" >&2
+	exit 1
+}
+
+cleanup() {
+	if [ -n "$SUDO_KEEPALIVE_PID" ]; then
+		kill "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
 	fi
+}
 
+check_dependencies() {
+	command -v sudo >/dev/null 2>&1 ||
+		die "sudo is required but was not found."
+}
+
+request_sudo() {
 	echo "Requesting sudo access..."
 	sudo -v
 
-	while true; do
-		sudo -n true
-		sleep 60
-		kill -0 "$$" 2>/dev/null || exit
-	done 2>/dev/null &
+	(
+		while true; do
+			sleep 60
+			sudo -n true || exit
+		done
+	) &
+
+	SUDO_KEEPALIVE_PID=$!
 }
-
-#######################################
-# Existing install
-#######################################
-
-check_existing() {
-	if [ -e "$NIX_DIR" ]; then
-		echo "Existing Nix configuration found at:"
-		echo "$NIX_DIR"
-
-		printf "Replace it and reinstall? [y/N] "
-		read -r answer </dev/tty
-
-		case "$answer" in
-		y | Y)
-			echo "Removing existing configuration..."
-			rm -rf "$NIX_DIR"
-			sudo rm -rf "/etc/nix/machine.nix"
-			;;
-		*)
-			echo "Cancelled - no changes have occurred."
-			exit 0
-			;;
-		esac
-	fi
-}
-
-#######################################
-# Install Nix
-#######################################
-
-install_nix() {
-	if [ -d /etc/nix ]; then
-		echo "Nix detected."
-		command -v nix || true
-		return
-	fi
-
-	echo "Installing Nix..."
-	curl -L https://nixos.org/nix/install | sh -s -- --daemon --yes
-}
-
-#######################################
-# Load Nix
-#######################################
 
 load_nix() {
 	if [ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]; then
-		echo "Loading Nix..."
 		. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
 	fi
 }
 
-#######################################
-# Enable flakes
-#######################################
-
-enable_flakes() {
-	CONF="/etc/nix/nix.conf"
-
-	if ! grep -q "experimental-features" "$CONF" 2>/dev/null; then
-		echo "Enabling flakes..."
-
-		echo "experimental-features = nix-command flakes" |
-			sudo tee -a "$CONF" >/dev/null
+install_nix() {
+	if command -v nix >/dev/null 2>&1; then
+		echo "Nix is already installed."
+		return
 	fi
+
+	echo "Installing Nix..."
+
+	curl -L https://nixos.org/nix/install |
+		sh -s -- --daemon --yes
+
+	load_nix
+
+	command -v nix >/dev/null 2>&1 ||
+		die "Nix was installed but could not be found in PATH."
 }
 
-#######################################
-# Clone repo using temporary git
-#######################################
+ensure_nix_available() {
+	if ! command -v nix >/dev/null 2>&1; then
+		load_nix
+	fi
 
-clone_repo() {
+	command -v nix >/dev/null 2>&1 ||
+		die "Nix could not be loaded."
+}
+
+enable_flakes() {
+	if grep -Eq '^[[:space:]]*experimental-features[[:space:]]*=' "$CONF" 2>/dev/null; then
+		echo "Nix flakes are already configured."
+		return
+	fi
+
+	echo "Enabling flakes..."
+
+	printf '%s\n' \
+		"experimental-features = nix-command flakes" |
+		sudo tee -a "$CONF" >/dev/null
+}
+
+clone_configuration() {
 	echo "Cloning configuration..."
+
+	if [ -e "$NIX_DIR" ]; then
+		echo "Removing existing configuration..."
+		rm -rf "$NIX_DIR"
+	fi
 
 	nix shell nixpkgs#git -c \
 		git clone "$REPO_URL" "$NIX_DIR"
 }
 
-#######################################
-# Generate machine config
-#######################################
+detect_system() {
+	OS="$(uname -s)"
+	ARCH="$(uname -m)"
 
-create_machine() {
-	MACHINE="/etc/nix/machine.nix"
+	case "$OS" in
+	Linux)
+		NIX_OS="linux"
+		;;
 
+	Darwin)
+		NIX_OS="darwin"
+		;;
+
+	*)
+		die "Unsupported operating system: $OS"
+		;;
+	esac
+
+	case "$ARCH" in
+	x86_64)
+		NIX_ARCH="x86_64"
+		;;
+
+	aarch64 | arm64)
+		NIX_ARCH="aarch64"
+		;;
+
+	*)
+		die "Unsupported architecture: $ARCH"
+		;;
+	esac
+}
+
+generate_machine_config() {
 	echo "Generating machine.nix..."
 
 	sudo tee "$MACHINE" >/dev/null <<EOF
 {
-  system = "$(uname -m)-$(uname -s | tr '[:upper:]' '[:lower:]')";
+  system = "${NIX_ARCH}-${NIX_OS}";
   username = "$USER";
   homeDirectory = "$HOME";
 }
 EOF
 
 	sudo chmod 644 "$MACHINE"
-
-	cat "$MACHINE"
 }
 
-#######################################
-# First activation
-#######################################
-
-first_run() {
-
+apply_home_manager() {
 	echo "Applying Home Manager..."
 
-	cd "$NIX_DIR"
-
-	nix run home-manager -- switch --flake ".#$USER"
-
-	cd -
+	(
+		cd "$NIX_DIR"
+		nix run home-manager -- switch --flake ".#$USER"
+	)
 }
 
-#######################################
-# Fish
-#######################################
-setup_fish() {
-	echo "Enabling Fish..."
-
+configure_fish() {
 	fish_path="$(command -v fish || true)"
 
-	if ! grep -Fxq "$fish_path" /etc/shells; then
-		echo "Adding $fish_path to /etc/shells..."
+	if [ -z "$fish_path" ]; then
+		die "Fish was not found after applying the Home Manager configuration."
+	fi
+
+	if [ ! -f /etc/shells ] || ! grep -Fxq "$fish_path" /etc/shells; then
+		echo "Adding Fish to /etc/shells..."
 		echo "$fish_path" | sudo tee -a /etc/shells >/dev/null
 	fi
 
-	current_shell="$(getent passwd "$USER" | cut -d: -f7)"
+	current_shell="${SHELL:-}"
 
 	if [ "$current_shell" != "$fish_path" ]; then
 		echo "Changing login shell to Fish..."
@@ -162,32 +173,27 @@ setup_fish() {
 	fi
 }
 
-#######################################
-# Main
-#######################################
-
 main() {
-	require_sudo
-
-	check_existing
+	check_dependencies
+	request_sudo
 
 	install_nix
-
-	load_nix
+	ensure_nix_available
 
 	enable_flakes
+	clone_configuration
 
-	clone_repo
+	detect_system
+	generate_machine_config
 
-	create_machine
-
-	first_run
-
-	setup_fish
+	apply_home_manager
+	configure_fish
 
 	echo
 	echo "Done."
 }
 
-main
+trap cleanup EXIT HUP INT TERM
+
+main "$@"
 
