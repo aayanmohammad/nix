@@ -1,31 +1,50 @@
 { pkgs, lib, ... }:
 
 let
-  agents = [
-    "qwen2.5-coder:7b"
+  models = [
+    "qwen2.5-coder:14b"
   ];
-
-  installAgents = pkgs.writeShellScript "install-ollama-agents" ''
-    set -eu
-
-    ${lib.concatMapStringsSep "\n" (agent: ''
-      echo "Installing Ollama agent: ${agent}"
-      ${pkgs.ollama}/bin/ollama pull "${agent}"
-    '') agents}
-  '';
 in
 {
-  services.ollama = {
-    enable = true;
-    package = pkgs.ollama;
-  };
-
   home.packages = [
     pkgs.ollama
   ];
 
-  home.activation.installOllamaAgents = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    ${installAgents}
+  systemd.user.services.ollama = lib.mkIf pkgs.stdenv.isLinux {
+    Unit = {
+      Description = "Ollama";
+      After = [ "network-online.target" ];
+      Wants = [ "network-online.target" ];
+    };
+
+    Service = {
+      ExecStart = "${pkgs.ollama}/bin/ollama serve";
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+
+    Install.WantedBy = [ "default.target" ];
+  };
+
+  launchd.agents.ollama = lib.mkIf pkgs.stdenv.isDarwin {
+    enable = true;
+
+    config = {
+      ProgramArguments = [
+        "${pkgs.ollama}/bin/ollama"
+        "serve"
+      ];
+
+      RunAtLoad = true;
+      KeepAlive = true;
+    };
+  };
+
+  home.activation.installOllamaModels = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    ${lib.concatMapStringsSep "\n" (model: ''
+      echo "Installing Ollama model: ${model}"
+      ${pkgs.ollama}/bin/ollama pull "${model}"
+    '') models}
   '';
 }
 
