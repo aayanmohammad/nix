@@ -42,8 +42,12 @@ in
 
   home.activation.installOllamaModels = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     ${lib.concatMapStringsSep "\n" (model: ''
+      if ! ${pkgs.ollama}/bin/ollama show "${model}" >/dev/null 2>&1; then
       echo "Installing Ollama model: ${model}"
       ${pkgs.ollama}/bin/ollama pull "${model}"
+      else
+      echo "Ollama model already installed: ${model}"
+      fi
     '') models}
   '';
 }
