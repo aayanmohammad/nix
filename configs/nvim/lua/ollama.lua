@@ -4,53 +4,135 @@ local M = {
 }
 
 local SYSTEM = [[
-You are a strict code editor integrated with Neovim.
+You are a strict source-code replacement engine running inside Neovim.
 
-Return ONLY source code.
-Always preserve the existing style, indentation, and formatting.
-Never return markdown.
-Never return code fences.
-Never return explanations.
-Never return JSON.
-Never add line numbers.
+Your output is inserted directly into a source buffer.
 
-You are given the COMPLETE current source file and ALL current buffer diagnostics.
+OUTPUT ONLY SOURCE CODE.
 
-Use the complete file and diagnostics to understand the code before making changes.
+Never output explanations.
+Never output reasoning.
+Never output markdown.
+Never output code fences.
+Never output JSON.
+Never output XML.
+Never output YAML.
+Never output line numbers.
+Never output natural language.
+Never describe the change.
+Never say "here is".
+Never say "here's".
+Never say "updated code".
+Never say "replacement".
+Never add text before the source.
+Never add text after the source.
 
-DIAGNOSTIC MODE:
+The complete source file is READ-ONLY CONTEXT.
 
-- Fix the requested LSP diagnostic.
-- Determine the actual root cause.
-- You may modify any part of the file genuinely required.
-- Do not make unrelated changes.
-- Do not refactor working code.
-- Do not reformat the file.
-- Do not rename things unless required.
-- Do not invent dependencies or APIs.
-- Return the COMPLETE corrected source file.
+You may inspect the complete file to understand:
+- surrounding code
+- imports
+- functions
+- variables
+- types
+- dependencies
+- diagnostics
+- LSP information
+- formatting
+- scope
+
+Context is NOT output.
 
 EDIT MODE:
 
-- The selected source scope is identified separately.
-- Use the complete file to understand surrounding code, dependencies, types, imports, functions, and context.
-- Modify ONLY the selected source scope.
-- Return ONLY the replacement source for that selected scope.
-- Never return the surrounding file.
-- Never repeat code outside the selected scope.
-- Make only the requested changes.
+The selected scope is the ONLY editable region.
+
+Return ONLY the final source that replaces that scope.
+
+Do not return anything before the scope.
+Do not return anything after the scope.
+Do not return surrounding functions.
+Do not return surrounding code.
+Do not return the complete file.
+
+DIAGNOSTIC MODE:
+
+Use the target diagnostic as the primary problem.
+
+Use:
+- the target diagnostic
+- all buffer diagnostics
+- raw LSP hover responses
+- LSP type information
+- LSP documentation
+- the complete source file
+
+The raw LSP hover response is authoritative information from the language server.
+
+Determine the actual root cause before changing code.
+
+Make the smallest necessary fix.
+
+Do not modify unrelated code.
+Do not refactor working code.
+Do not rename things unless required.
+Do not invent APIs.
+Do not invent dependencies.
+Do not change formatting unnecessarily.
+
+Return ONLY the replacement source for the requested diagnostic scope.
 
 GENERATE MODE:
 
-- The cursor position is identified separately.
-- Use the complete file to understand surrounding code, dependencies, types, imports, functions, and context.
-- Generate ONLY NEW source lines after the cursor.
-- Never repeat existing source.
-- Never return the supplied context.
-- Never return the complete file.
-- Continue naturally from the cursor.
-- Return only the new lines to insert.
+The cursor is an insertion boundary.
+
+Return ONLY NEW source lines that must be inserted after the cursor.
+
+Do not repeat the cursor line.
+Do not repeat existing source.
+Do not repeat surrounding source.
+Do not regenerate the surrounding function.
+Do not return the complete file.
+
+DUPLICATION RULE:
+
+Context exists only to help you understand the requested change.
+
+Context is NOT output.
+
+Before emitting the result, internally verify:
+
+1. Every output line belongs to the requested replacement.
+2. No surrounding source is repeated.
+3. No existing context is duplicated.
+4. No old code is followed by duplicated old code.
+5. No markdown fence exists.
+6. No explanation exists.
+7. No line numbers exist.
+8. The output can be inserted directly into the source buffer.
+
+If there is nothing to change, return the original requested source scope exactly.
+
+STYLE:
+
+Preserve the existing:
+- indentation
+- formatting
+- naming
+- quoting
+- syntax style
+
+Do not reformat unrelated code.
+
+FINAL OUTPUT:
+
+Return ONLY the source-code payload.
+
+Nothing else.
 ]]
+
+local MAX_RESPONSE_LINES = 1000
+local MAX_RESPONSE_CHARS = 50000
 
 local function notify(msg, level)
 	vim.notify("[ollama] " .. msg, level or vim.log.levels.INFO)
@@ -58,29 +140,77 @@ end
 
 local function decode(text)
 	local ok, result = pcall(vim.json.decode, text)
-	return ok and result or nil
-end
 
-local function clean(text)
-	text = vim.trim(text)
-
-	text = text:gsub("^```[%w_+-]*\n", "")
-	text = text:gsub("\n```$", "")
-
-	return vim.trim(text)
-end
-
-local function split(text)
-	text = clean(text)
-
-	if text == "" then
-		return {}
+	if not ok then
+		return nil
 	end
 
-	return vim.split(text, "\n", {
+	return result
+end
+
+local function strip_outer_fence(text)
+	text = vim.trim(text)
+
+	if text == "" then
+		return ""
+	end
+
+	local language, content = text:match("^```([%w_+%-]*)\n(.*)$")
+
+	if language ~= nil and content ~= nil then
+		content = content:gsub("\n```%s*$", "")
+
+		return vim.trim(content)
+	end
+
+	content = text:match("^```[^\n]*\n(.*)\n```%s*$")
+
+	if content then
+		return vim.trim(content)
+	end
+
+	return text
+end
+
+local function validate_response(text)
+	if type(text) ~= "string" then
+		return nil, "Ollama returned invalid content"
+	end
+
+	text = vim.trim(text)
+
+	if text == "" then
+		return nil, "Ollama returned empty source"
+	end
+
+	if #text > MAX_RESPONSE_CHARS then
+		return nil, "Ollama response is unexpectedly large"
+	end
+
+	text = strip_outer_fence(text)
+
+	if text == "" then
+		return nil, "Ollama returned empty source"
+	end
+
+	if text:find("```", 1, true) then
+		return nil, "Ollama returned invalid code fences"
+	end
+
+	local lines = vim.split(text, "\n", {
 		plain = true,
 		trimempty = false,
 	})
+
+	if #lines == 0 then
+		return nil, "Ollama returned empty source"
+	end
+
+	if #lines > MAX_RESPONSE_LINES then
+		return nil, "Ollama response is unexpectedly large"
+	end
+
+	return lines
 end
 
 local function show_generating()
@@ -231,48 +361,39 @@ function M.select_model()
 	M.models(true)
 end
 
+local function predict_limit(mode)
+	if mode == "generate" then
+		return 512
+	end
+
+	if mode == "diagnostic" then
+		return 768
+	end
+
+	return 1024
+end
+
 function M.ask(prompt, mode, callback)
 	local function request()
-		local loading_buf, loading_win, loading_ns = show_generating()
+		local loading_buf
+		local loading_win
+		local loading_ns
 
-		local mode_instruction
-
-		if mode == "edit" then
-			mode_instruction = [[
-
-EDIT MODE:
-Return ONLY the replacement source for the selected scope.
-Do not return anything outside the selected scope.
-Do not add line numbers.
-]]
-		elseif mode == "generate" then
-			mode_instruction = [[
-
-GENERATE MODE:
-Return ONLY NEW source lines to insert after the cursor.
-Do not repeat any existing source.
-Do not return the context.
-Do not return the complete file.
-Do not add line numbers.
-]]
-		else
-			mode_instruction = [[
-
-DIAGNOSTIC MODE:
-Return the COMPLETE corrected source file.
-Return raw source only.
-Do not add line numbers.
-]]
-		end
+		loading_buf, loading_win, loading_ns = show_generating()
 
 		local body = vim.json.encode({
 			model = M.model,
+
 			stream = false,
+
+			think = false,
+
+			keep_alive = "10m",
 
 			messages = {
 				{
 					role = "system",
-					content = SYSTEM .. mode_instruction,
+					content = SYSTEM,
 				},
 				{
 					role = "user",
@@ -282,6 +403,10 @@ Do not add line numbers.
 
 			options = {
 				temperature = 0,
+				top_p = 0.1,
+				repeat_penalty = 1.05,
+				seed = 0,
+				num_predict = predict_limit(mode),
 			},
 		})
 
@@ -304,7 +429,7 @@ Do not add line numbers.
 				hide_generating(loading_buf, loading_win, loading_ns)
 
 				if result.code ~= 0 then
-					notify("request failed", vim.log.levels.ERROR)
+					notify("Ollama request failed", vim.log.levels.ERROR)
 
 					return
 				end
@@ -350,6 +475,7 @@ local function preview(buf, proposed)
 	vim.bo[preview_buf].readonly = true
 
 	local original_win = vim.api.nvim_get_current_win()
+
 	local original_cursor = vim.api.nvim_win_get_cursor(original_win)
 
 	vim.cmd("vsplit")
@@ -365,6 +491,7 @@ local function preview(buf, proposed)
 	vim.cmd("diffthis")
 
 	local old_original_statusline = vim.wo[original_win].statusline
+
 	local old_preview_statusline = vim.wo[preview_win].statusline
 
 	vim.wo[original_win].statusline = ""
@@ -381,11 +508,13 @@ local function preview(buf, proposed)
 
 		if vim.api.nvim_win_is_valid(preview_win) then
 			vim.api.nvim_set_current_win(preview_win)
+
 			pcall(vim.cmd, "diffoff!")
 		end
 
 		if vim.api.nvim_win_is_valid(original_win) then
 			vim.api.nvim_set_current_win(original_win)
+
 			pcall(vim.cmd, "diffoff!")
 
 			vim.wo[original_win].statusline = old_original_statusline
@@ -425,10 +554,14 @@ local function preview(buf, proposed)
 
 			vim.api.nvim_set_current_win(original_win)
 
-			vim.api.nvim_win_set_cursor(original_win, { row, col })
+			vim.api.nvim_win_set_cursor(original_win, {
+				row,
+				col,
+			})
 		end
 
 		notify("applied")
+
 		finish()
 	end, {
 		buffer = preview_buf,
@@ -490,10 +623,97 @@ local function code_context(buf)
 	}, "\n")
 end
 
+local function diagnostic_summary(diagnostic)
+	return {
+		message = diagnostic.message,
+		source = diagnostic.source,
+		code = diagnostic.code,
+		severity = diagnostic.severity,
+
+		range = {
+			start = {
+				line = diagnostic.lnum + 1,
+				column = (diagnostic.col or 0) + 1,
+			},
+
+			["end"] = {
+				line = (diagnostic.end_lnum or diagnostic.lnum) + 1,
+
+				column = (diagnostic.end_col or diagnostic.col or 0) + 1,
+			},
+		},
+
+		tags = diagnostic.tags,
+	}
+end
+
+local function all_diagnostic_summaries(buf)
+	local result = {}
+
+	for _, diagnostic in ipairs(vim.diagnostic.get(buf)) do
+		result[#result + 1] = diagnostic_summary(diagnostic)
+	end
+
+	return result
+end
+
+local function get_lsp_hover_raw(buf, diagnostic, callback)
+	local clients = vim.lsp.get_clients({
+		bufnr = buf,
+	})
+
+	local hover_clients = {}
+
+	for _, client in ipairs(clients) do
+		if client.supports_method and client:supports_method("textDocument/hover") then
+			hover_clients[#hover_clients + 1] = client
+		end
+	end
+
+	if #hover_clients == 0 then
+		callback({})
+
+		return
+	end
+
+	local pending = #hover_clients
+	local results = {}
+
+	local function done()
+		pending = pending - 1
+
+		if pending == 0 then
+			callback(results)
+		end
+	end
+
+	for _, client in ipairs(hover_clients) do
+		local params = vim.lsp.util.make_position_params(0, client.offset_encoding)
+
+		params.position = {
+			line = diagnostic.lnum,
+			character = diagnostic.col or 0,
+		}
+
+		client:request("textDocument/hover", params, function(err, result)
+			if not err and result then
+				results[#results + 1] = {
+					client = client.name,
+					client_id = client.id,
+					result = result,
+				}
+			end
+
+			done()
+		end, buf)
+	end
+end
+
 function M.edit()
 	local buf = vim.api.nvim_get_current_buf()
 
 	local start_mark = vim.api.nvim_buf_get_mark(buf, "<")
+
 	local end_mark = vim.api.nvim_buf_get_mark(buf, ">")
 
 	if start_mark[1] == 0 or end_mark[1] == 0 then
@@ -503,6 +723,7 @@ function M.edit()
 	end
 
 	local start_row = math.min(start_mark[1], end_mark[1]) - 1
+
 	local end_row = math.max(start_mark[1], end_mark[1])
 
 	local selected = vim.api.nvim_buf_get_lines(buf, start_row, end_row, false)
@@ -514,60 +735,74 @@ function M.edit()
 			return
 		end
 
-		M.ask(
-			"Edit ONLY the selected source scope.\n\n"
-				.. "Request:\n"
-				.. request
-				.. "\n\n"
-				.. "Selected source scope:\n"
-				.. table.concat(selected, "\n")
-				.. "\n\n"
-				.. "Selected scope starts at source line "
-				.. (start_row + 1)
-				.. " and ends at source line "
-				.. end_row
-				.. ".\n\n"
-				.. code_context(buf)
-				.. "\n\n"
-				.. "Use the complete file and diagnostics "
-				.. "to understand the requested change, but "
-				.. "return ONLY the replacement for the selected scope.",
-			"edit",
-			function(result)
-				local replacement = split(result)
+		local prompt = table.concat({
+			"MODE: EDIT",
 
-				if #replacement == 0 then
-					notify("Ollama returned empty replacement", vim.log.levels.ERROR)
+			"",
+			"USER REQUEST:",
+			request,
 
-					return
-				end
+			"",
+			"EDITABLE SCOPE:",
+			"Source lines " .. (start_row + 1) .. "-" .. end_row,
 
-				local current = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+			"",
+			"CURRENT EDITABLE SOURCE:",
+			table.concat(selected, "\n"),
 
-				local proposed = {}
+			"",
+			code_context(buf),
 
-				for i = 1, start_row do
-					proposed[#proposed + 1] = current[i]
-				end
+			"",
+			"FINAL INSTRUCTION:",
+			"Return ONLY the replacement for the editable scope.",
+			"Do not return surrounding source.",
+			"Do not return the complete file.",
+			"Do not repeat context.",
+		}, "\n")
 
-				for _, line in ipairs(replacement) do
-					proposed[#proposed + 1] = line
-				end
+		M.ask(prompt, "edit", function(result)
+			local replacement, err = validate_response(result)
 
-				for i = end_row + 1, #current do
-					proposed[#proposed + 1] = current[i]
-				end
+			if not replacement then
+				notify(err, vim.log.levels.ERROR)
 
-				preview(buf, proposed)
+				return
 			end
-		)
+
+			local current = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+			local proposed = {}
+
+			for i = 1, start_row do
+				proposed[#proposed + 1] = current[i]
+			end
+
+			for _, line in ipairs(replacement) do
+				proposed[#proposed + 1] = line
+			end
+
+			for i = end_row + 1, #current do
+				proposed[#proposed + 1] = current[i]
+			end
+
+			if vim.deep_equal(current, proposed) then
+				notify("Ollama made no changes", vim.log.levels.WARN)
+
+				return
+			end
+
+			preview(buf, proposed)
+		end)
 	end)
 end
 
 function M.generate()
 	local buf = vim.api.nvim_get_current_buf()
 
-	local cursor_row = vim.api.nvim_win_get_cursor(0)[1] - 1
+	local cursor = vim.api.nvim_win_get_cursor(0)
+
+	local cursor_row = cursor[1] - 1
 
 	vim.ui.input({
 		prompt = "generate: ",
@@ -576,41 +811,48 @@ function M.generate()
 			return
 		end
 
-		M.ask(
-			"Generate code after the cursor.\n\n"
-				.. "Request:\n"
-				.. request
-				.. "\n\n"
-				.. "Cursor is after source line "
-				.. cursor_row
-				.. ".\n\n"
-				.. code_context(buf)
-				.. "\n\n"
-				.. "Use the complete file and diagnostics "
-				.. "to understand what should be generated. "
-				.. "Return ONLY NEW lines that belong after "
-				.. "the cursor. Do not repeat existing lines.",
-			"generate",
-			function(result)
-				local generated = split(result)
+		local prompt = table.concat({
+			"MODE: GENERATE",
 
-				if #generated == 0 then
-					notify("Ollama returned no new lines", vim.log.levels.WARN)
+			"",
+			"USER REQUEST:",
+			request,
 
-					return
-				end
+			"",
+			"INSERTION POINT:",
+			"After source line " .. cursor_row,
 
-				local current = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+			"",
+			code_context(buf),
 
-				local proposed = vim.deepcopy(current)
+			"",
+			"FINAL INSTRUCTION:",
+			"Return ONLY NEW source lines.",
+			"Do not repeat existing source.",
+			"Do not repeat the cursor line.",
+			"Do not return surrounding source.",
+			"Do not return the complete file.",
+		}, "\n")
 
-				for i = #generated, 1, -1 do
-					table.insert(proposed, cursor_row + 2, generated[i])
-				end
+		M.ask(prompt, "generate", function(result)
+			local generated, err = validate_response(result)
 
-				preview(buf, proposed)
+			if not generated then
+				notify(err or "Ollama returned no new lines", vim.log.levels.ERROR)
+
+				return
 			end
-		)
+
+			local current = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+			local proposed = vim.deepcopy(current)
+
+			for i = #generated, 1, -1 do
+				table.insert(proposed, cursor_row + 2, generated[i])
+			end
+
+			preview(buf, proposed)
+		end)
 	end)
 end
 
@@ -635,45 +877,103 @@ function M.fix_diagnostic(diagnostic)
 
 	local original = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 
-	M.ask(
-		"Fix this LSP diagnostic.\n\n"
-			.. "Analyze the entire file before making the fix.\n"
-			.. "Use all buffer diagnostics when determining the root cause.\n"
-			.. "Return ONLY the corrected source file.\n"
-			.. "Do not add line numbers.\n"
-			.. "Do not add markdown.\n\n"
-			.. "TARGET DIAGNOSTIC:\n"
-			.. vim.json.encode({
-				message = diagnostic.message,
-				source = diagnostic.source,
-				code = diagnostic.code,
-				severity = diagnostic.severity,
-				line = diagnostic.lnum + 1,
-				column = (diagnostic.col or 0) + 1,
-				end_line = (diagnostic.end_lnum or diagnostic.lnum) + 1,
-				end_column = (diagnostic.end_col or diagnostic.col or 0) + 1,
-			})
-			.. "\n\n"
-			.. code_context(buf),
-		"diagnostic",
-		function(result)
-			local replacement = split(result)
+	local start_row = diagnostic.lnum
 
-			if #replacement == 0 then
-				notify("Ollama returned empty source", vim.log.levels.ERROR)
+	local end_row = diagnostic.end_lnum or diagnostic.lnum
+
+	local original_scope = vim.api.nvim_buf_get_lines(buf, start_row, end_row + 1, false)
+
+	get_lsp_hover_raw(buf, diagnostic, function(hover_results)
+		local hover_json = vim.json.encode(hover_results)
+
+		local diagnostics_json = vim.json.encode(all_diagnostic_summaries(buf))
+
+		local prompt = table.concat({
+			"MODE: DIAGNOSTIC FIX",
+
+			"",
+			"TARGET DIAGNOSTIC:",
+			vim.json.encode(diagnostic_summary(diagnostic)),
+
+			"",
+			"RAW LSP HOVER RESPONSES:",
+			"The following is the raw textDocument/hover response returned by the attached language servers at the diagnostic position.",
+			"This is the underlying information Neovim uses for K.",
+			hover_json,
+
+			"",
+			"ALL BUFFER DIAGNOSTICS:",
+			diagnostics_json,
+
+			"",
+			"TARGET SOURCE SCOPE:",
+			"Source lines " .. (start_row + 1) .. "-" .. (end_row + 1),
+
+			"",
+			"CURRENT TARGET SOURCE:",
+			table.concat(original_scope, "\n"),
+
+			"",
+			code_context(buf),
+
+			"",
+			"DIAGNOSTIC FIX RULES:",
+			"Determine the actual root cause.",
+			"Use the target diagnostic.",
+			"Use the complete raw LSP hover response.",
+			"Use all buffer diagnostics.",
+			"Use the complete source file.",
+			"Use LSP type information and documentation when available.",
+			"Do not blindly fix only the reported token.",
+			"Make the smallest necessary fix.",
+			"Do not modify unrelated code.",
+			"Do not refactor working code.",
+			"Do not invent APIs or dependencies.",
+
+			"",
+			"OUTPUT RULE:",
+			"Return ONLY the replacement source for the target source scope.",
+			"Return raw source only.",
+			"Never return explanations.",
+			"Never return markdown.",
+			"Never return code fences.",
+			"Never return surrounding source.",
+			"Never return the complete file.",
+			"Never repeat context.",
+		}, "\n")
+
+		M.ask(prompt, "diagnostic", function(result)
+			local replacement, err = validate_response(result)
+
+			if not replacement then
+				notify(err or "Ollama returned empty source", vim.log.levels.ERROR)
 
 				return
 			end
 
-			if vim.deep_equal(original, replacement) then
+			if vim.deep_equal(original_scope, replacement) then
 				notify("Ollama made no changes", vim.log.levels.WARN)
 
 				return
 			end
 
-			preview(buf, replacement)
-		end
-	)
+			local proposed = {}
+
+			for i = 1, start_row do
+				proposed[#proposed + 1] = original[i]
+			end
+
+			for _, line in ipairs(replacement) do
+				proposed[#proposed + 1] = line
+			end
+
+			for i = end_row + 2, #original do
+				proposed[#proposed + 1] = original[i]
+			end
+
+			preview(buf, proposed)
+		end)
+	end)
 end
 
 local native_code_action = vim.lsp.buf.code_action
@@ -724,6 +1024,7 @@ function M.code_action(opts)
 	opts = opts or {}
 
 	local buf = vim.api.nvim_get_current_buf()
+
 	local win = vim.api.nvim_get_current_win()
 
 	local clients = vim.lsp.get_clients({
@@ -743,10 +1044,12 @@ function M.code_action(opts)
 
 	for _, diagnostic in ipairs(diagnostics) do
 		local start_line = diagnostic.lnum
+
 		local end_line = diagnostic.end_lnum or diagnostic.lnum
 
 		if cursor_line >= start_line and cursor_line <= end_line then
 			target_diagnostic = diagnostic
+
 			break
 		end
 	end
@@ -829,6 +1132,7 @@ function M.code_action(opts)
 				for _, action in ipairs(result) do
 					if not action.disabled then
 						action.client_id = client.id
+
 						actions[#actions + 1] = action
 					end
 				end
