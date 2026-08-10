@@ -14,10 +14,13 @@ Never return explanations.
 Never return JSON.
 Never add line numbers.
 
+You are given the COMPLETE current source file and ALL current buffer diagnostics.
+
+Use the complete file and diagnostics to understand the code before making changes.
+
 DIAGNOSTIC MODE:
+
 - Fix the requested LSP diagnostic.
-- You receive the COMPLETE current source file.
-- The source is provided exactly as it exists in the buffer.
 - Determine the actual root cause.
 - You may modify any part of the file genuinely required.
 - Do not make unrelated changes.
@@ -28,13 +31,19 @@ DIAGNOSTIC MODE:
 - Return the COMPLETE corrected source file.
 
 EDIT MODE:
-- You receive ONLY the selected source scope.
+
+- The selected source scope is identified separately.
+- Use the complete file to understand surrounding code, dependencies, types, imports, functions, and context.
+- Modify ONLY the selected source scope.
 - Return ONLY the replacement source for that selected scope.
 - Never return the surrounding file.
 - Never repeat code outside the selected scope.
 - Make only the requested changes.
 
 GENERATE MODE:
+
+- The cursor position is identified separately.
+- Use the complete file to understand surrounding code, dependencies, types, imports, functions, and context.
 - Generate ONLY NEW source lines after the cursor.
 - Never repeat existing source.
 - Never return the supplied context.
@@ -356,7 +365,6 @@ local function preview(buf, proposed)
 	vim.cmd("diffthis")
 
 	local old_original_statusline = vim.wo[original_win].statusline
-
 	local old_preview_statusline = vim.wo[preview_win].statusline
 
 	vim.wo[original_win].statusline = ""
@@ -447,6 +455,41 @@ local function preview(buf, proposed)
 	})
 end
 
+local function code_context(buf)
+	local source = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+	local diagnostic_lines = {}
+
+	for _, d in ipairs(vim.diagnostic.get(buf)) do
+		diagnostic_lines[#diagnostic_lines + 1] = string.format(
+			"%d:%d-%d:%d %s%s",
+			d.lnum + 1,
+			(d.col or 0) + 1,
+			(d.end_lnum or d.lnum) + 1,
+			(d.end_col or d.col or 0) + 1,
+			d.message,
+			d.source and (" [" .. d.source .. "]") or ""
+		)
+	end
+
+	return table.concat({
+		"FILE:",
+		vim.api.nvim_buf_get_name(buf),
+
+		"",
+		"FILETYPE:",
+		vim.bo[buf].filetype,
+
+		"",
+		"ALL BUFFER DIAGNOSTICS:",
+		#diagnostic_lines > 0 and table.concat(diagnostic_lines, "\n") or "None",
+
+		"",
+		"COMPLETE SOURCE FILE:",
+		table.concat(source, "\n"),
+	}, "\n")
+end
+
 function M.edit()
 	local buf = vim.api.nvim_get_current_buf()
 
@@ -460,7 +503,6 @@ function M.edit()
 	end
 
 	local start_row = math.min(start_mark[1], end_mark[1]) - 1
-
 	local end_row = math.max(start_mark[1], end_mark[1])
 
 	local selected = vim.api.nvim_buf_get_lines(buf, start_row, end_row, false)
@@ -473,15 +515,23 @@ function M.edit()
 		end
 
 		M.ask(
-			"Edit ONLY this selected scope.\n\n"
+			"Edit ONLY the selected source scope.\n\n"
 				.. "Request:\n"
 				.. request
 				.. "\n\n"
-				.. "Selected source:\n"
+				.. "Selected source scope:\n"
 				.. table.concat(selected, "\n")
 				.. "\n\n"
-				.. "Return ONLY the replacement "
-				.. "for the selected source.",
+				.. "Selected scope starts at source line "
+				.. (start_row + 1)
+				.. " and ends at source line "
+				.. end_row
+				.. ".\n\n"
+				.. code_context(buf)
+				.. "\n\n"
+				.. "Use the complete file and diagnostics "
+				.. "to understand the requested change, but "
+				.. "return ONLY the replacement for the selected scope.",
 			"edit",
 			function(result)
 				local replacement = split(result)
@@ -519,10 +569,6 @@ function M.generate()
 
 	local cursor_row = vim.api.nvim_win_get_cursor(0)[1] - 1
 
-	local context_start = math.max(0, cursor_row - 20)
-
-	local context = vim.api.nvim_buf_get_lines(buf, context_start, cursor_row + 1, false)
-
 	vim.ui.input({
 		prompt = "generate: ",
 	}, function(request)
@@ -535,12 +581,15 @@ function M.generate()
 				.. "Request:\n"
 				.. request
 				.. "\n\n"
-				.. "Existing source context:\n"
-				.. table.concat(context, "\n")
+				.. "Cursor is after source line "
+				.. cursor_row
+				.. ".\n\n"
+				.. code_context(buf)
 				.. "\n\n"
-				.. "Return ONLY NEW lines. "
-				.. "Do not repeat any existing lines. "
-				.. "Do not return the existing context.",
+				.. "Use the complete file and diagnostics "
+				.. "to understand what should be generated. "
+				.. "Return ONLY NEW lines that belong after "
+				.. "the cursor. Do not repeat existing lines.",
 			"generate",
 			function(result)
 				local generated = split(result)
@@ -563,68 +612,6 @@ function M.generate()
 			end
 		)
 	end)
-end
-
-local function lsp_context(buf, diagnostic)
-	local source = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-
-	local diagnostic_lines = {}
-
-	for _, d in ipairs(vim.diagnostic.get(buf)) do
-		diagnostic_lines[#diagnostic_lines + 1] = string.format(
-			"%d:%d-%d:%d %s%s",
-			d.lnum + 1,
-			(d.col or 0) + 1,
-			(d.end_lnum or d.lnum) + 1,
-			(d.end_col or d.col or 0) + 1,
-			d.message,
-			d.source and (" [" .. d.source .. "]") or ""
-		)
-	end
-
-	local clients = vim.lsp.get_clients({
-		bufnr = buf,
-	})
-
-	local client_lines = {}
-
-	for _, client in ipairs(clients) do
-		client_lines[#client_lines + 1] = string.format("%s (%s)", client.name, client.id)
-	end
-
-	return table.concat({
-		"FILE:",
-		vim.api.nvim_buf_get_name(buf),
-
-		"",
-		"FILETYPE:",
-		vim.bo[buf].filetype,
-
-		"",
-		"TARGET DIAGNOSTIC:",
-		vim.json.encode({
-			message = diagnostic.message,
-			source = diagnostic.source,
-			code = diagnostic.code,
-			severity = diagnostic.severity,
-			line = diagnostic.lnum + 1,
-			column = (diagnostic.col or 0) + 1,
-			end_line = (diagnostic.end_lnum or diagnostic.lnum) + 1,
-			end_column = (diagnostic.end_col or diagnostic.col or 0) + 1,
-		}),
-
-		"",
-		"ALL BUFFER DIAGNOSTICS:",
-		#diagnostic_lines > 0 and table.concat(diagnostic_lines, "\n") or "None",
-
-		"",
-		"ACTIVE LSP CLIENTS:",
-		#client_lines > 0 and table.concat(client_lines, "\n") or "None",
-
-		"",
-		"COMPLETE SOURCE FILE:",
-		table.concat(source, "\n"),
-	}, "\n")
 end
 
 function M.fix_diagnostic(diagnostic)
@@ -650,12 +637,24 @@ function M.fix_diagnostic(diagnostic)
 
 	M.ask(
 		"Fix this LSP diagnostic.\n\n"
-			.. "Analyze the entire file before making "
-			.. "the fix.\n"
+			.. "Analyze the entire file before making the fix.\n"
+			.. "Use all buffer diagnostics when determining the root cause.\n"
 			.. "Return ONLY the corrected source file.\n"
 			.. "Do not add line numbers.\n"
 			.. "Do not add markdown.\n\n"
-			.. lsp_context(buf, diagnostic),
+			.. "TARGET DIAGNOSTIC:\n"
+			.. vim.json.encode({
+				message = diagnostic.message,
+				source = diagnostic.source,
+				code = diagnostic.code,
+				severity = diagnostic.severity,
+				line = diagnostic.lnum + 1,
+				column = (diagnostic.col or 0) + 1,
+				end_line = (diagnostic.end_lnum or diagnostic.lnum) + 1,
+				end_column = (diagnostic.end_col or diagnostic.col or 0) + 1,
+			})
+			.. "\n\n"
+			.. code_context(buf),
 		"diagnostic",
 		function(result)
 			local replacement = split(result)
