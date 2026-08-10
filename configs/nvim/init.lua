@@ -8,6 +8,7 @@ vim.api.nvim_create_autocmd("VimEnter", {
 
 		vim.schedule(function()
 			require("diagnostics")
+			require("ollama")
 		end)
 	end,
 })

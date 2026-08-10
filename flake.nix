@@ -9,6 +9,7 @@
 
     machine = {
       url = "path:/etc/nix/machine.nix";
+      flake = false;
     };
   };
 
