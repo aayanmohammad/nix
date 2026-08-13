@@ -1,3 +1,25 @@
+vim.diagnostic.config({
+	update_in_insert = false,
+	severity_sort = true,
+	underline = true,
+	float = {
+		border = "rounded",
+		source = true,
+		header = "",
+		prefix = "",
+		focusable = false,
+		style = "minimal",
+	},
+	signs = {
+		text = {
+			[vim.diagnostic.severity.ERROR] = "X",
+			[vim.diagnostic.severity.WARN] = "!",
+			[vim.diagnostic.severity.INFO] = "i",
+			[vim.diagnostic.severity.HINT] = "?",
+		},
+	},
+})
+
 require("lsp").setup()
 
 local original_open_floating_preview = vim.lsp.util.open_floating_preview
@@ -79,27 +101,5 @@ vim.api.nvim_create_autocmd("LspAttach", {
 			desc = "Previous diagnostic",
 		})
 	end,
-})
-
-vim.diagnostic.config({
-	update_in_insert = false,
-	severity_sort = true,
-	underline = true,
-	float = {
-		border = "rounded",
-		source = true,
-		header = "",
-		prefix = "",
-		focusable = false,
-		style = "minimal",
-	},
-	signs = {
-		text = {
-			[vim.diagnostic.severity.ERROR] = "X",
-			[vim.diagnostic.severity.WARN] = "!",
-			[vim.diagnostic.severity.INFO] = "i",
-			[vim.diagnostic.severity.HINT] = "?",
-		},
-	},
 })
 

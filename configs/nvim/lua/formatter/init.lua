@@ -12,19 +12,19 @@ for _, file in ipairs(vim.fn.readdir(formatter_path)) do
 	end
 end
 
-local function get_formatter(filetype)
-	for _, formatter in pairs(formatters) do
-		if vim.tbl_contains(formatter.filetypes, filetype) then
-			return formatter
+function M.format()
+	local filetype = vim.bo.filetype
+	local formatter
+
+	for _, candidate in pairs(formatters) do
+		if vim.tbl_contains(candidate.filetypes, filetype) then
+			formatter = candidate
+			break
 		end
 	end
-end
-
-function M.format()
-	local formatter = get_formatter(vim.bo.filetype)
 
 	if not formatter then
-		vim.notify("No formatter for " .. vim.bo.filetype, vim.log.levels.WARN)
+		vim.notify("No formatter for " .. filetype, vim.log.levels.WARN)
 		return
 	end
 

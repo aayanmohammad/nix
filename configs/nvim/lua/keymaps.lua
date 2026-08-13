@@ -12,12 +12,36 @@ end, {
 	desc = "Move up (wrap-aware)",
 })
 
+vim.keymap.set("v", "<", "<gv", {
+	desc = "Indent left (keep selection)",
+})
+
+vim.keymap.set("v", ">", ">gv", {
+	desc = "Indent right (keep selection)",
+})
+
+vim.keymap.set("x", "p", '"_dP', {
+	desc = "Paste without yanking",
+})
+
+vim.keymap.set({ "n", "v" }, "x", '"_x', {
+	desc = "Delete without yanking",
+})
+
+vim.keymap.set("n", "J", "mzJ`z", {
+	desc = "Join lines (keep cursor position)",
+})
+
 vim.keymap.set("n", "n", "nzzzv", {
 	desc = "Next search result (centered)",
 })
 
 vim.keymap.set("n", "N", "Nzzzv", {
 	desc = "Previous search result (centered)",
+})
+
+vim.keymap.set("n", "<leader>nh", "<cmd>nohlsearch<CR>", {
+	desc = "Clear search highlights",
 })
 
 vim.keymap.set("n", "<C-d>", "<C-d>zz", {
@@ -28,24 +52,18 @@ vim.keymap.set("n", "<C-u>", "<C-u>zz", {
 	desc = "Scroll half page up (centered)",
 })
 
-vim.keymap.set("n", "<leader>nh", "<cmd>nohlsearch<CR>", {
-	desc = "Clear search highlights",
-})
+vim.keymap.set("n", "<leader>e", function()
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.bo[buf].filetype == "netrw" then
+			vim.api.nvim_buf_delete(buf, { force = true })
+			return
+		end
+	end
 
-vim.keymap.set("x", "<leader>p", '"_dP', {
-	desc = "Paste without yanking",
-})
-
-vim.keymap.set({ "n", "v" }, "<leader>x", '"_d', {
-	desc = "Delete without yanking",
-})
-
-vim.keymap.set("v", "<leader>y", '"+y', {
-	desc = "Yank to system clipboard",
-})
-
-vim.keymap.set("n", "J", "mzJ`z", {
-	desc = "Join lines (keep cursor position)",
+	vim.cmd("Vexplore!")
+	vim.wo.statusline = " "
+end, {
+	desc = "Toggle file explorer",
 })
 
 vim.keymap.set("n", "<leader>bn", "<cmd>bnext<CR>", {
@@ -58,46 +76,6 @@ vim.keymap.set("n", "<leader>bN", "<cmd>bprevious<CR>", {
 
 vim.keymap.set("n", "<leader>bd", "<cmd>bdelete<CR>", {
 	desc = "Delete current buffer",
-})
-
-vim.keymap.set("n", "<leader>sv", "<cmd>vsplit<CR>", {
-	desc = "Open vertical split",
-})
-
-vim.keymap.set("n", "<leader>sh", "<cmd>split<CR>", {
-	desc = "Open horizontal split",
-})
-
-vim.keymap.set("n", "<C-h>", "<cmd>vertical resize -2<CR>", {
-	desc = "Decrease split width",
-})
-
-vim.keymap.set("n", "<C-j>", "<cmd>resize -2<CR>", {
-	desc = "Decrease split height",
-})
-
-vim.keymap.set("n", "<C-k>", "<cmd>resize +2<CR>", {
-	desc = "Increase split height",
-})
-
-vim.keymap.set("n", "<C-l>", "<cmd>vertical resize +2<CR>", {
-	desc = "Increase split width",
-})
-
-vim.keymap.set("v", "<A-j>", ":m '>+1<CR>gv=gv", {
-	desc = "Move selection down",
-})
-
-vim.keymap.set("v", "<A-k>", ":m '<-2<CR>gv=gv", {
-	desc = "Move selection up",
-})
-
-vim.keymap.set("v", "<", "<gv", {
-	desc = "Indent left (keep selection)",
-})
-
-vim.keymap.set("v", ">", ">gv", {
-	desc = "Indent right (keep selection)",
 })
 
 vim.keymap.set("i", "<Tab>", function()
@@ -129,20 +107,6 @@ vim.keymap.set("i", "'", "''<Left>", {
 
 vim.keymap.set("i", '"', '""<Left>', {
 	desc = "Auto close double quote",
-})
-
-vim.keymap.set("n", "<leader>e", function()
-	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.bo[buf].filetype == "netrw" then
-			vim.api.nvim_buf_delete(buf, { force = true })
-			return
-		end
-	end
-
-	vim.cmd("Vexplore")
-	vim.wo.statusline = " "
-end, {
-	desc = "Toggle file explorer",
 })
 
 vim.keymap.set("n", "<leader>f", function()

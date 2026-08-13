@@ -11,9 +11,10 @@ vim.api.nvim_create_autocmd("FileType", {
 	},
 
 	callback = function()
+		vim.opt_local.spell = true
 		vim.opt_local.wrap = true
 		vim.opt_local.linebreak = true
-		vim.opt_local.spell = true
+		vim.opt_local.omnifunc = ""
 	end,
 })
 
@@ -76,7 +77,7 @@ vim.api.nvim_create_autocmd("VimEnter", {
 
 		if vim.fn.argc() == 0 or (vim.fn.argc() == 1 and vim.fn.isdirectory(vim.fn.argv(0)) == 1) then
 			vim.schedule(function()
-				vim.cmd("Vexplore")
+				vim.cmd("Vexplore!")
 				vim.wo.statusline = " "
 			end)
 		end
@@ -91,28 +92,10 @@ vim.api.nvim_create_autocmd("CmdlineChanged", {
 	end,
 })
 
-vim.api.nvim_create_autocmd("BufWritePre", {
-	group = augroup,
-	desc = "Format buffer before saving",
-	callback = function()
-		require("formatter").format()
-	end,
-})
-
-local ignored_filetypes = {
-	markdown = true,
-	gitcommit = true,
-	text = true,
-}
-
 vim.api.nvim_create_autocmd("TextChangedI", {
 	group = augroup,
 	desc = "Trigger omnifunc completion while typing",
 	callback = function()
-		if ignored_filetypes[vim.bo.filetype] then
-			return
-		end
-
 		if vim.bo.omnifunc == "" then
 			return
 		end
@@ -128,13 +111,17 @@ vim.api.nvim_create_autocmd("TextChangedI", {
 			return
 		end
 
-		if not text:match("[%w_]$") then
-			return
-		end
-
-		vim.schedule(function()
+		if text:match("[%w_]$") then
 			vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-x><C-o>", true, false, true), "n", false)
-		end)
+		end
+	end,
+})
+
+vim.api.nvim_create_autocmd("BufWritePre", {
+	group = augroup,
+	desc = "Format buffer before saving",
+	callback = function()
+		require("formatter").format()
 	end,
 })
 
